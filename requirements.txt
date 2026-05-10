@@ -1,0 +1,7 @@
+google-adk
+litellm
+PyMuPDF
+python-magic
+opency-python
+pytesseract
+Pillow
