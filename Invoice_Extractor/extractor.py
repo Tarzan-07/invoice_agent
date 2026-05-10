@@ -64,6 +64,7 @@ def extract_invoice_data(raw_text: str)->dict:
             api_base='https://openrouter.ai/api/v1',
             response_format={'type':'json_object'},
             temperature=0,
+            max_tokens=1000,
         )
 
         content = response.choices[0].message.content

@@ -53,3 +53,5 @@ Guidelines:
         get_total_spending,
     ],
 )
+
+root_agent = agent
