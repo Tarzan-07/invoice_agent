@@ -17,7 +17,7 @@ from .tools import classify_document
 logger = logging.getLogger(__name__)
 
 litellm_model = LiteLlm(
-    model='openrouter/openai/gpt-4o',
+    model='openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
     api_key=os.getenv('OPENROUTER_API_KEY', 'DEFAULT'),
     api_base='https://openrouter.ai/api/v1'
 )

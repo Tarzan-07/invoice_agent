@@ -58,7 +58,7 @@ def extract_invoice_data(raw_text: str)->dict:
 
     try:
         response = litellm.completion(
-            model='openrouter/openai/gpt-4o',
+            model='openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
             messages=[{'role': 'user', 'content': prompt}],
             api_key=os.getenv('OPENROUTER_API_KEY'),
             api_base='https://openrouter.ai/api/v1',
