@@ -1,2 +1,6 @@
 .vscode
 *.env
+*.pyc
+*.db
+*.adk/
+docsloader.py

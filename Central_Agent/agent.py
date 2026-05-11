@@ -6,7 +6,7 @@ from Query_Agent.agent import agent as query_agent
 from .tools import ingest_invoice
 
 litellm_model = LiteLlm(
-    model='openrouter/openai/gpt-4o',
+    model='openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
     api_key=os.getenv('OPENROUTER_API_KEY'),
     api_base='https://openrouter.ai/api/v1'
 )
