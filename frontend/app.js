@@ -63,3 +63,130 @@ function renderFileItem(file) {
     });
     fileList.appendChild(li);
 }
+
+/* Drag & Drop */
+dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+});
+['dragleave', 'dragend'].forEach(ev =>
+    dropZone.addEventListener(ev, () => dropZone.classList.remove('drag-over'))
+);
+
+dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    stageFiles(e.dataTransfer.files)
+});
+
+dropZone.addEventListener('click', e => {
+    if(e.target.closest('.btn-browse')) return;
+    fileInput.click();
+});
+
+fileInput.addEventListener('change', () => {
+    stageFiles(fileInput.files);
+    fileInput.value = '';
+});
+
+/* Upload functionality */
+uploadBtn.addEventListener('click', async () => {
+    if (stagedFiles.size == 0) return;
+    uploadBtn.disabled = true;
+    uploadBtn.classList.add('loading');
+    uploadBtn.innerHTML = '<span class="spinner></span>Processing...';
+
+    const formData = new FormData();
+    stagedFiles.forEach(file => formData.append('files', files, file.name));
+
+    try {
+        const res = await fetch('upload', { method: 'POST', body: formData});
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+        
+        const data = await res.json();
+        renderResults(data.results);
+        await loadInvoices();
+    } catch (err) {
+        alert('Upload failed: ' + err.message);
+    } finally {
+        uploadBtn.innerHTML = 'Upload &amp; Process'; 
+        uploadBtn.disabled = false;
+        uploadBtn.classList.remove('loading');
+        stagedFiles.clear();
+        fileList.innerHTML = '';
+    }
+});
+
+function renderResults(results) {
+    resultCards.innerHTML = '';
+    results.forEach(r => {
+        const ok = r.success;
+        const card = document.createElement('div');
+        card.className = `result-card ${ok ? 'success' : 'failure'}`;
+        card.innerHTML = `
+            <div class="badge">${ok ? '✅' : '❌'}</div>
+            <div class="card-body">
+                <div class="card-filename">${r.filename ?? r.file}</div>
+                ${ok ? `
+                    <div class="card-meta">
+                        <div class="meta-item">Vendor <span>${fmt(r.vendor_name)}</span></div>
+                        <div class="meta-item">Invoice # <span>${fmt(r.invoice_number)}</span></div>
+                        <div class="meta-item"> Date <span>${fmt(r.invoice_date)}</span></div>
+                        <div class="meta-item"> ID <span>#${fmt(r.total)} ${fmt(r.currency)}</span></div>
+                    </div>
+                    ` : `<div class="card-detail">${r.error}</div>`}
+                </div>
+            `;
+            resultCards.appendChild(card);
+    });
+    resultSection.hidden = false;
+    resultSection.scrollIntoView({ behavior: 'smooth', block: 'start'});
+}
+
+async function loadInvoices() {
+    try {
+        const res = await fetch('/invoices');
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+        const data = await res.json();
+        renderTable(data.invoices);
+    } catch (err) {
+        invoicesBody.innerHTML = `<tr> <td colspan="empty" style="color:var(--danger)">Failed to load: ${err.message}</td></tr>`;
+    }
+    
+}
+
+function renderTable(invoices) {
+    if (!invoices || invoices.length == 0) {
+        invoicesBody.innerHTML = '<tr><td colspan="7" class="empty">No invoices yet.</td></tr>';
+        return;
+    }
+
+    invoicesBody.innerHTML = invoices.map((inv, i) => `
+    <tr>
+        <td>${inv.id ?? i + 1}</td>
+        <td>${fmt(inv.vendor_name)}</td>
+        <td>${fmt(inv.invoice_number)}</td>
+        <td>${fmt(inv.invoice_date)}</td>
+        <td>${fmt(inv.due_date)}</td>
+        <td>${inv.total != null ? Number(inv.total).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}): '-'}</td>
+        <td>${fmt(inv.currency)}</td>
+    </tr>
+    `).join('');
+}
+
+refreshBtn.addEventListener('click', loadInvoices);
+
+/* Chat functionality */
+
+const chatMessages = document.getElementById('chatMessages');
+const chatInput = document.getElementById('chatInput');
+const sendBtn = document.getElementById('sendBtn');
+
+function addBuble(text, role) {
+    const div = document.createElement('div');
+    div.className = `chat-bubble ${role}`;
+    div.textContent = text;
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    return div;
+}
