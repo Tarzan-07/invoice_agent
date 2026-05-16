@@ -220,7 +220,7 @@ async def chat(req: ChatRequest):
         return '\n\n'.join(reply_parts) if reply_parts else '(no response)'
     
     try:
-        reply_text = await asyncio.wait_for(collect_reply(), timeout=25.0)
+        reply_text = await asyncio.wait_for(collect_reply(), timeout=120.0)
     except asyncio.TimeoutError:
         reply_text = "The request timed out. The agent is taking too long to respond - please try again."
     
