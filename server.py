@@ -74,6 +74,10 @@ FRONTEND_DIR = Path(__file__).parent / "frontend"
 
 app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
+
+@app.get("/", include_in_schema=False)
+async def serve_index():
+    return FileResponse(str(FRONTEND_DIR / "index.html"))
 # Health check. FastAPI by default will check the endpoint named '/health' for health check. 
 
 @app.get("/health")

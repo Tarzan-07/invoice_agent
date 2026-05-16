@@ -71,7 +71,7 @@ def _extract_scanned_pdf_text(file_path: str) -> str:
             api_key=os.getenv('OPENROUTER_API_KEY'),
             api_base='https://openrouter.ai/api/v1',
             temperature=0,
-            max_tokens=2000
+            max_tokens=4000
         )
 
         content = response.choices[0].message.content or ""

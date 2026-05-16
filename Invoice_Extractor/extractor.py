@@ -64,17 +64,37 @@ def extract_invoice_data(raw_text: str)->dict:
             api_base='https://openrouter.ai/api/v1',
             response_format={'type':'json_object'},
             temperature=0,
-            max_tokens=1000,
+            max_tokens=4000,
         )
 
         content = response.choices[0].message.content
         if not content:
+            msg = response.choices[0].message
+            reasoning = getattr(msg, 'reasoning_content', None) or (
+                getattr(msg, 'provider_specific_fields', None) or {}
+            ).get('reasoning_content', '')
+
+            if reasoning:
+                import re
+                json_blocks = re.findall(r'```(?:json)?\s*\n(.*?)```', reasoning, re.DOTALL)
+                if json_blocks:
+                    content = json_blocks[-1].strip()
+            
+        if not content:
             logger.error('LLM returned empty content. Full response: %s', response)
             return {'error': 'LLM returned empty response'}
+        
+        content = content.strip()
+
+        if content.startswith('```'):
+            content = content.split('\n', 1)[1]
+            content = content.rsplit('```', 1)[0]
+            content = content.strip()
+
         return json.loads(content)
     
     except json.JSONDecodeError as exc:
-        logger.error('Failed to parse LLM response as JSON: %s', exc)
+        logger.error('Failed to parse LLM response as JSON: %s - raw: %s', exc)
         return {'error': f'JSON parsing failed: {exc}'}
 
     except Exception as e:
