@@ -19,7 +19,7 @@ def get_all_invoices()->list:
         SELECT id, vendor_name, vendor_address, invoice_number, invoice_date, 
             due_date, total, currency, file_path
         FROM invoices
-        ORDER BY invoices_date DESC
+        ORDER BY invoice_date DESC
         """
     ).fetchall()
     conn.close()
@@ -29,7 +29,7 @@ def search_invoices_by_vendor(vendor_name: str)->list:
     conn = _connect()
     rows = conn.execute(
         """
-        SELECT id, vendor_name, vendor_name, invoice_number, invoice_date,
+        SELECT id, vendor_name, invoice_number, invoice_date,
             due_date, total, currency, file_path
         FROM invoices
         WHERE vendor_name LIKE ?
@@ -43,14 +43,14 @@ def search_invoices_by_vendor(vendor_name: str)->list:
 def get_invoice_details(invoice_id: int)->dict:
     conn = _connect()
     row = conn.execute(
-        "SELECT * FROM invoices where id = ?", (invoice_id) 
+        "SELECT * FROM invoices where id = ?", (invoice_id,) 
     ).fetchone()
     if not row:
         conn.close()
         return {}
     
     invoice = dict(row)
-    invoice.pop("row_text", None)
+    invoice.pop("raw_text", None)
 
     items = conn.execute(
         "SELECT description, quantity, unit_price, total FROM line_items WHERE invoice_id = ?", (invoice_id,)
@@ -91,13 +91,7 @@ def get_spending_by_vendor()->list:
         GROUP BY vendor_name, currency
         ORDER BY invoice_date DESC
         """
-    ).fetchall()
-
-    if not rows:
-        conn.close()
-        return []
-    
-    conn.close()
+    )
     return [dict(r) for r in rows]
 
 def search_by_invoice_date_range(start_date: str, end_date: str)->list:

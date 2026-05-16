@@ -13,8 +13,9 @@ from .tools import (
     search_invoices_fulltext
 )
 
+model = os.getenv('ORC_MODEL')
 litellm_model = LiteLlm(
-    model='openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+    model=f'openrouter/{model}',
     api_key=os.getenv('OPENROUTER_API_KEY'),
     api_base='https://openrouter.ai/api/v1'
 )

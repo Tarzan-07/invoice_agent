@@ -4,11 +4,11 @@
 
 from pathlib import Path
 import fitz
-import magic
+import mimetypes
 
 def detect_mime_type(file_path: str):
-    mime = magic.Magic(mime=True)
-    return mime.from_file(file_path)
+    mime, _ = mimetypes.guess_type(file_path)
+    return mime or 'application/octet-stream'
 
 def detect_file_extension(file_path: str):
     return Path(file_path).suffix.lower()
