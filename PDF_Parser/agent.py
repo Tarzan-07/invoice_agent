@@ -4,9 +4,9 @@ from google.adk.models.lite_llm import LiteLlm
 from google.adk.agents import Agent
 
 from .tools import extract_text_from_pdf
-
+model = os.getenv('ORC_MODEL')
 litellm_model = LiteLlm(
-    model='openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+    model=f'openrouter/{model}',
     api_key=os.getenv('OPENROUTER_API_KEY'),
     api_base='https://openrouter.ai/api/v1'
 )
@@ -17,8 +17,8 @@ agent = Agent(
     instruction=(
         'You are a PDF parsing agent. Use the extract_text_from_pdf tool to extract',
         'raw text from PDF invoice files. The tool automatically detects whether the ',
-        'PDF is digital or scanned and applies OCR when needed.'
+        'PDF is digital or scanned and uses the vision model for scanned pages.'
     ),
-    description='Extracts text from PDF invoices, supporting both digital and scanned PDFs.',
+    description='Extracts text from PDF invoices, supporting both digital and scanned PDFs via vision model.',
     tools=[extract_text_from_pdf],
 )

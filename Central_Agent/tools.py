@@ -1,12 +1,29 @@
 """
 Central_Agent/tools.py
+
+Lightweight tools for the Central Agent - storage after sub-agents have 
+already classified and extracted text from the invoice document.
 """
 
 from pathlib import Path
 
 SUPPORTED_EXTENSIONS = {'.pdf', '.jpg', '.jpeg', '.png', '.tiff'}
 
-def ingest_invoice(file_path: str):
+def store_parsed_invoice(file_path: str, raw_text: str) -> dict:
+    """
+    Take raw extracted text from an invoice, parse it into structured fields using an LLM,
+    and store it in the database. 
+
+    Args: 
+        file_path: Absolute path to the original invoice file.
+        raw_text: The full text content extracted from the invoice.
+
+    Returns:
+        A dict with success status, invoice metadata, or an error message.
+    """
+
+    from Invoice_Extractor.extractor import extract_invoice_data
+    from Storage.db import store_invoice
     from Doc_Class_agent.tools import classify_document
     from PDF_Parser.tools import extract_text_from_pdf
     from Image_Parser.tools import extract_text_from_image
@@ -14,27 +31,6 @@ def ingest_invoice(file_path: str):
     from Storage.db import store_invoice
 
     file_path = str(Path(file_path).resolve())
-
-    classification = classify_document(file_path)
-    file_type = classification.get('file_type', 'unknown')
-
-    if file_type not in ('pdf', 'image'):
-        return {
-            'success': False,
-            'error': f"Unsupported file type '{classification.get('extension', 'unknown')}'."
-                    f"Supported: {', '.join(sorted(SUPPORTED_EXTENSIONS))}",
-            'file': file_path,
-        }
-    
-    if file_type == "pdf":
-        result = extract_text_from_pdf(file_path)
-    else:
-        result = extract_text_from_image(file_path)
-    
-    if not result.get('success'):
-        return {'success': False, 'error': result.get('error'), 'file': file_path}
-    
-    raw_text = result['text']
 
     invoice_data = extract_invoice_data(raw_text)
     if 'error' in invoice_data:
@@ -44,7 +40,8 @@ def ingest_invoice(file_path: str):
 
     return {
         'success': True,
-        'invoice_id': invoice_data.get('vendor_name'),
+        'invoice_id': invoice_id,
+        'vendor_name': invoice_data.get('vendor_name'),
         'invoice_number': invoice_data.get('invoice_number'),
         'invoice_date': invoice_data.get('invoice_date'),
         'total': invoice_data.get('total'),

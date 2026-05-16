@@ -25,7 +25,7 @@ Required fields (use null when the information is absent):
     - due_date (string, ISO 8601 preferred)
     - bill_to_name (string)
     - bill_to_address (string)
-    - line_items (array of object: {description, quantity, unit_price, total})
+    - line_items (array of object: {{description, quantity, unit_price, total}})
     - subtotal (number)
     - tax (number)
     - tax_rate (number, percentage e.g. 10 for 10%)
@@ -55,10 +55,10 @@ def extract_invoice_data(raw_text: str)->dict:
         return {'error': 'No text provided for extraction'}
     
     prompt = _EXTRACTION_PROMPT.format(raw_text=raw_text[:4000])
-
+    model = os.getenv('ORC_MODEL')
     try:
         response = litellm.completion(
-            model='openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+            model=f'openrouter/{model}',
             messages=[{'role': 'user', 'content': prompt}],
             api_key=os.getenv('OPENROUTER_API_KEY'),
             api_base='https://openrouter.ai/api/v1',
@@ -68,6 +68,9 @@ def extract_invoice_data(raw_text: str)->dict:
         )
 
         content = response.choices[0].message.content
+        if not content:
+            logger.error('LLM returned empty content. Full response: %s', response)
+            return {'error': 'LLM returned empty response'}
         return json.loads(content)
     
     except json.JSONDecodeError as exc:

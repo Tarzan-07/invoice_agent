@@ -29,6 +29,7 @@ def init_db()->None:
         file_path TEXT UNIQUE,
         vendor_name TEXT,
         vendor_address TEXT,
+        invoice_number TEXT,
         invoice_date TEXT,
         due_date TEXT,
         bill_to_name TEXT,
@@ -46,7 +47,7 @@ def init_db()->None:
         );
 
         CREATE TABLE IF NOT EXISTS line_items (
-        id PRIMARY KEY AUTOINCREMENT,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         invoice_id INTEGER NOT NULL REFERENCES invoices(id),
         description TEXT,
         quantity REAL,
@@ -69,17 +70,18 @@ def store_invoice(file_path: str, invoice_data: dict, raw_text: str)->int:
         cur.execute(
             """
             INSERT INTO invoices (
-            file_path, vendor_name, vendor_address, invoice_date, due_date, 
+            file_path, vendor_name, vendor_address, invoice_number, invoice_date, due_date, 
             bill_to_name, bill_to_address, subtotal, tax, tax_rate, total, 
             currency, payment_terms, notes, raw_text, extracted_json, created_at
             ) VALUES (
-            :file_path, :vendor_name, :vendor_address, :invoice_date, :due_date, 
+            :file_path, :vendor_name, :vendor_address, :invoice_number, :invoice_date, :due_date, 
             :bill_to_name, :bill_to_address, :subtotal, :tax, :tax_rate, :total, 
             :currency, :payment_terms, :notes, :raw_text, :extracted_json, :created_at
             )
             ON CONFLICT(file_path) DO UPDATE SET
             vendor_name = excluded.vendor_name, 
             vendor_address = excluded.vendor_address, 
+            invoice_number = excluded.invoice_number,
             invoice_date = excluded.invoice_date, 
             due_date = excluded.due_date, 
             bill_to_name = excluded.bill_to_name, 
@@ -99,6 +101,7 @@ def store_invoice(file_path: str, invoice_data: dict, raw_text: str)->int:
                 'file_path': file_path,
                 'vendor_name': invoice_data.get('vendor_name'), 
                 'vendor_address': invoice_data.get('vendor_address'),
+                'invoice_number': invoice_data.get('invoice_number'),
                 'invoice_date': invoice_data.get('invoice_date'),
                 'due_date': invoice_data.get('due_date'),
                 'bill_to_name': invoice_data.get('bill_to_name'),
@@ -110,14 +113,14 @@ def store_invoice(file_path: str, invoice_data: dict, raw_text: str)->int:
                 'currency': invoice_data.get('currency'), 
                 'payment_terms': invoice_data.get('payment_terms'), 
                 'notes': invoice_data.get('notes'), 
-                'raw_text': invoice_data.get('raw_text'), 
+                'raw_text': raw_text,
                 'extracted_json': json.dumps(invoice_data), 
                 'created_at': datetime.now(timezone.utc).isoformat(),
             },
         )
 
         invoice_id = cur.execute(
-            "SELECT id FROM invoices WHERE file_path = ?", (file_path)
+            "SELECT id FROM invoices WHERE file_path = ?", (file_path,)
         ).fetchone()['id']
 
         cur.execute("DELETE FROM line_items WHERE invoice_id = ?", (invoice_id,))
@@ -128,13 +131,13 @@ def store_invoice(file_path: str, invoice_data: dict, raw_text: str)->int:
                     INSERT INTO line_items (invoice_id, description, quantity, unit_price, total)
                     VALUES (?, ?, ?, ?, ?)
                     """,
-                    {
+                    (
                         invoice_id,
                         item.get('description'),
                         item.get('quantity'),
                         item.get('unit_price'),
                         item.get('total'),
-                    },
+                    ),
                 )
 
         conn.commit()

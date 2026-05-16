@@ -1,48 +1,89 @@
 """
+Image_parser/tools.py
 
+Extracts text from image-based invoices using a vision LLM.
 """
 
-import cv2
-import pytesseract as pts
-from pytesseract import Output
+import base64
+import os
+import logging
 from pathlib import Path
+import litellm
 
-def validate_image(file_path: str)-> bool:
-    """Checks whether a file can be loaded as an image."""
-    img = cv2.imread(file_path)
-    return img is not None
+logger = logging.getLogger(__name__)
 
-def preprocess_image(file_path: str):
-    """Load and preprocess image to improve OCR accuracy."""
-    img = cv2.imread(file_path)
-    state = validate_image(file_path)
-    if not state:
-        raise ValueError(f"Cannot read image at {file_path}")
-    
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    gray = cv2.medianBlur(gray, 3)
-    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-    return thresh
+SUPPORTED_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tiff', '.webp'}
 
-def extract_data_from_image(processed):
-    data = pts.image_to_data(processed, output_type=Output.dict)
-    return data
 
-def extract_text_from_image(file_path):
-    """
-    Extract text from image file. 
-    """
-    if not validate_image(file_path):
-        return {
-            'success': False,
-            'error': f'Cannot read image at {file_path}',
-            'text': "",
-        }
-    processed = preprocess_image(file_path)
-    text = pts.image_to_string(processed)
+def _encode_image_base64(file_path: str) -> str:
+    """Read an image file and retures it's base64-encoded string."""
+
+
+    with open(file_path, 'rb') as f:
+        return base64.b64encode(f.read()).decode('utf-8')
+
+def _mime_type(file_path: str) -> str:
+    ext = Path(file_path).suffix.lower()
     return {
-        'success': True,
-        'text': text.strip(),
-        'file_path': file_path
-    }
+        '.jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.tiff': 'image/tiff',
+        '.webp': 'image/webp'
+    }.get(ext, 'image/png')
 
+def extract_text_from_image(file_path: str) -> dict:
+    """
+    Extract all text from an invoice image using a vision LLM.
+
+    Args: 
+        file_path: Absolute path to the image file.
+
+    Returns:
+        dict with 'success' (bool), 'text' (str), and optionally 'error' (str)
+    """
+
+    path = Path(file_path)
+    if not path.exists():
+        return {'success': False, 'error': f'File not found: {file_path}', 'text': ''}
+    
+    if path.suffix.lower() not in SUPPORTED_IMAGE_EXTENSIONS:
+        return {'success': False, 'error': f'Unsupported image type: {path.suffix}', 'text': ''}
+    
+    try:
+        b64 = _encode_image_base64(file_path=file_path)
+        mime = _mime_type(file_path=file_path)
+        model = os.getenv('VIS_MODEL')
+        response = litellm.completion(
+            model=f'openrouter/{model}',
+            messages=[{
+                'role': 'user',
+                'content': [
+                    {
+                        'type': 'text',
+                        'text': (
+                            'Extract ALL text from the invoice image exactly as it appears. '
+                            'Preserve the layout, line items, amounts, dates, addresses, '
+                            'and any other text. Return only the extracted text, no commentary.'
+                        ),
+                    },
+                    {
+                        'type': 'image_url',
+                        'image_url': {
+                            'url': f'data:{mime};base64, {b64}',
+                        },
+                    },
+                ],
+            }],
+            api_key=os.getenv('OPENROUTER_API_KEY'),
+            api_base='https://openrouter.ai/api/v1',
+            temperature=0,
+            max_tokens=2000
+        )
+
+        content = response.choices[0].message.content or ""
+        return {'sucess': True, 'text': content.strip(), 'file_path': file_path}
+    
+    except Exception as e:
+        logger.error("Vision extraction failed for %s: %s", file_path, e)
+        return {'Success': False, 'error': str(e), 'text': ""}
