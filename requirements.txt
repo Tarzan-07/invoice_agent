@@ -1,7 +1,8 @@
 google-adk
 litellm
 PyMuPDF
-python-magic
-opency-python
-pytesseract
-Pillow
+fastapi
+uvicorn[standard]
+python-multipart
+certifi
+python-dotenv
