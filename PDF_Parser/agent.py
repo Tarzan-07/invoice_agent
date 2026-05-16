@@ -15,8 +15,8 @@ agent = Agent(
     name='pdf_parsing_agent',
     model=litellm_model,
     instruction=(
-        'You are a PDF parsing agent. Use the extract_text_from_pdf tool to extract',
-        'raw text from PDF invoice files. The tool automatically detects whether the ',
+        'You are a PDF parsing agent. Use the extract_text_from_pdf tool to extract '
+        'raw text from PDF invoice files. The tool automatically detects whether the '
         'PDF is digital or scanned and uses the vision model for scanned pages.'
     ),
     description='Extracts text from PDF invoices, supporting both digital and scanned PDFs via vision model.',

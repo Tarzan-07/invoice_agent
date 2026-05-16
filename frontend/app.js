@@ -11,7 +11,7 @@ const resultCards = document.getElementById('resultCards');
 const invoicesBody = document.getElementById('invoicesBody');
 const refreshBtn = document.getElementById('refreshBtn');
 
-const SUPPORTED = new Set(['.pdf', 'jpg', 'jpeg', '.png', '.tiff']);
+const SUPPORTED = new Set(['.pdf', '.jpg', '.jpeg', '.png', '.tiff']);
 
 /* Helper functions*/
 
@@ -94,10 +94,10 @@ uploadBtn.addEventListener('click', async () => {
     if (stagedFiles.size == 0) return;
     uploadBtn.disabled = true;
     uploadBtn.classList.add('loading');
-    uploadBtn.innerHTML = '<span class="spinner></span>Processing...';
+    uploadBtn.innerHTML = '<span class="spinner"></span>Processing...';
 
     const formData = new FormData();
-    stagedFiles.forEach(file => formData.append('files', files, file.name));
+    stagedFiles.forEach(file => formData.append('files', file, file.name));
 
     try {
         const res = await fetch('upload', { method: 'POST', body: formData});
@@ -190,3 +190,46 @@ function addBuble(text, role) {
     chatMessages.scrollTop = chatMessages.scrollHeight;
     return div;
 }
+
+
+async function sendMessage() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+
+    chatInput.value = '';
+    addBuble(text, 'user');
+
+    const thinking = addBuble('Thinking...', 'agent thinking');
+
+    sendBtn.disabled = true;
+
+    try {
+        const res = await fetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: text }),
+        });
+        if (!res.ok) throw new Error(`Server error ${res.status}`);
+        const data = await res.json();
+        thinking.remove();
+        addBuble(data.reply || '(no response)', 'agent');
+    } catch (err) {
+        thinking.remove();
+        addBuble('Error: ' + err.message, 'agent');
+    } finally {
+        sendBtn.disabled = false;
+        chatInput.focus();
+    }
+}
+
+sendBtn.addEventListener('click', sendMessage);
+chatInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftkey) {
+        e.preventDefault();
+        sendMessage();
+    }
+});
+
+
+/* Init */ 
+loadInvoices();

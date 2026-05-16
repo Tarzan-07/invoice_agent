@@ -70,7 +70,7 @@ def extract_text_from_image(file_path: str) -> dict:
                     {
                         'type': 'image_url',
                         'image_url': {
-                            'url': f'data:{mime};base64, {b64}',
+                            'url': f'data:{mime};base64,{b64}',
                         },
                     },
                 ],
@@ -78,12 +78,12 @@ def extract_text_from_image(file_path: str) -> dict:
             api_key=os.getenv('OPENROUTER_API_KEY'),
             api_base='https://openrouter.ai/api/v1',
             temperature=0,
-            max_tokens=2000
+            max_tokens=4000
         )
 
         content = response.choices[0].message.content or ""
-        return {'sucess': True, 'text': content.strip(), 'file_path': file_path}
+        return {'success': True, 'text': content.strip(), 'file_path': file_path}
     
     except Exception as e:
         logger.error("Vision extraction failed for %s: %s", file_path, e)
-        return {'Success': False, 'error': str(e), 'text': ""}
+        return {'success': False, 'error': str(e), 'text': ""}

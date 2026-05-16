@@ -8,8 +8,9 @@ from Image_Parser.agent import agent as image_parser_agent
 from PDF_Parser.agent import agent as pdf_parser_agent
 from .tools import store_parsed_invoice
 
+model = os.getenv('ORC_MODEL')
 litellm_model = LiteLlm(
-    model='openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+    model=f'openrouter/{model}',
     api_key=os.getenv('OPENROUTER_API_KEY'),
     api_base='https://openrouter.ai/api/v1'
 )
