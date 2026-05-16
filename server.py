@@ -206,13 +206,22 @@ async def chat(req: ChatRequest):
 
     message = Content(role="user", parts=[Part(text=req.message)])
 
-    reply_text= ""
-    async for event in runner.run_async(
-        user_id="web_user",
-        session_id=req.session_id,
-        new_message=message,
-    ):
-        if event.is_final_response() and event.content and event.content.parts:
-            reply_text = event.content.parts[0].text or ""
-
+    async def collect_reply():
+        reply_parts = []
+        async for event in runner.run_async(
+            user_id="web_user",
+            session_id=req.session_id,
+            new_message=message,
+        ):
+            if event.is_final_response() and event.content and event.content.parts:
+                for part in event.content.parts:
+                    if part.text:
+                        reply_parts.append(part.text)
+        return '\n\n'.join(reply_parts) if reply_parts else '(no response)'
+    
+    try:
+        reply_text = await asyncio.wait_for(collect_reply(), timeout=25.0)
+    except asyncio.TimeoutError:
+        reply_text = "The request timed out. The agent is taking too long to respond - please try again."
+    
     return {'reply': reply_text}
