@@ -105,6 +105,7 @@ uploadBtn.addEventListener('click', async () => {
         
         const data = await res.json();
         renderResults(data.results);
+        await new Promise(r => setTimeout(r, 1500));
         await loadInvoices();
     } catch (err) {
         alert('Upload failed: ' + err.message);
