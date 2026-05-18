@@ -51,7 +51,10 @@ def init_db() -> None:
         extracted_json TEXT,
         created_at TEXT
         );
-
+        """
+    )
+    cur.execute(
+        """
         CREATE TABLE IF NOT EXISTS line_items (
         id SERIAL PRIMARY KEY AUTOINCREMENT,
         invoice_id INTEGER NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
