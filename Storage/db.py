@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 def _connect()->psycopg2.extensions.connection:
     conn = psycopg2.connect(
         host = os.getenv('SUPABASE_DB_HOST'),
-        prot = int(os.getenv('SUPABASE_DB_PORT', '5432')),
+        port = int(os.getenv('SUPABASE_DB_PORT', '5432')),
         dbname = os.getenv('SUPABASE_DB_NAME', 'postgres'),
         user = os.getenv('SUPABASE_DB_USER', 'postgres'),
         password = os.getenv('SUPABASE_DB_PASSWORD'),
