@@ -1,31 +1,37 @@
 """
 Storage/db.py
 
-SQLite persistence layer for extracted invoice data.
+PostgreSQL persistence layer for extracted invoice data (via Supabase)
 """
 
 import json
 import logging
-from pathlib import Path
-import sqlite3
+import os
+import psycopg2
+import psycopg2.extras
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
-DB_PATH = Path(__file__).parent.parent / 'data' / 'invoices.db'
+# DB_PATH = Path(__file__).parent.parent / 'data' / 'invoices.db'
 
-def _connect()->sqlite3.Connection:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+def _connect()->psycopg2.extensions.connection:
+    conn = psycopg2.connect(
+        host = os.getenv('SUPABASE_DB_HOST'),
+        port = int(os.getenv('SUPABASE_DB_PORT', '5432')),
+        dbname = os.getenv('SUPABASE_DB_NAME', 'postgres'),
+        user = os.getenv('SUPABASE_DB_USER', 'postgres'),
+        password = os.getenv('SUPABASE_DB_PASSWORD'),
+        sslmode = 'require',
+    )
     return conn
 
-def init_db()->None:
+def init_db() -> None:
     conn = _connect()
     cur = conn.cursor()
-    cur.executescript(
+    cur.executes(
         """
         CREATE TABLE IF NOT EXISTS invoices (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY AUTOINCREMENT,
         file_path TEXT UNIQUE,
         vendor_name TEXT,
         vendor_address TEXT,
@@ -45,10 +51,13 @@ def init_db()->None:
         extracted_json TEXT,
         created_at TEXT
         );
-
+        """
+    )
+    cur.execute(
+        """
         CREATE TABLE IF NOT EXISTS line_items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        invoice_id INTEGER NOT NULL REFERENCES invoices(id),
+        id SERIAL PRIMARY KEY AUTOINCREMENT,
+        invoice_id INTEGER NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
         description TEXT,
         quantity REAL,
         unit_price REAL,
@@ -57,12 +66,13 @@ def init_db()->None:
         """
     )
     conn.commit()
+    cur.close()
     conn.close()
 
-def store_invoice(file_path: str, invoice_data: dict, raw_text: str)->int:
+def store_invoice(file_path: str, invoice_data: dict, raw_text: str) -> int:
     init_db()
     conn = _connect()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     # sql_query = """"""
 
@@ -70,32 +80,33 @@ def store_invoice(file_path: str, invoice_data: dict, raw_text: str)->int:
         cur.execute(
             """
             INSERT INTO invoices (
-            file_path, vendor_name, vendor_address, invoice_number, invoice_date, due_date, 
-            bill_to_name, bill_to_address, subtotal, tax, tax_rate, total, 
-            currency, payment_terms, notes, raw_text, extracted_json, created_at
+                file_path, vendor_name, vendor_address, invoice_number, invoice_date, due_date, 
+                bill_to_name, bill_to_address, subtotal, tax, tax_rate, total, 
+                currency, payment_terms, notes, raw_text, extracted_json, created_at
             ) VALUES (
-            :file_path, :vendor_name, :vendor_address, :invoice_number, :invoice_date, :due_date, 
-            :bill_to_name, :bill_to_address, :subtotal, :tax, :tax_rate, :total, 
-            :currency, :payment_terms, :notes, :raw_text, :extracted_json, :created_at
+                %(file_path)s, %(vendor_name)s, %(vendor_address)s, %(invoice_number)s, %(invoice_date)s, %(due_date)s, 
+                %(bill_to_name)s, %(bill_to_address)s, %(subtotal)s, %(tax)s, %(tax_rate)s, %(total)s, 
+                %(currency)s, %(payment_terms)s, %(notes)s, %(raw_text)s, %(extracted_json)s, %(created_at)s
             )
-            ON CONFLICT(file_path) DO UPDATE SET
-            vendor_name = excluded.vendor_name, 
-            vendor_address = excluded.vendor_address, 
-            invoice_number = excluded.invoice_number,
-            invoice_date = excluded.invoice_date, 
-            due_date = excluded.due_date, 
-            bill_to_name = excluded.bill_to_name, 
-            bill_to_address = excluded.bill_to_address, 
-            subtotal = excluded.subtotal, 
-            tax = excluded.tax, 
-            tax_rate = excluded.tax_rate, 
-            total = excluded.total, 
-            currency = excluded.currency, 
-            payment_terms = excluded.payment_terms, 
-            notes = excluded.notes, 
-            raw_text = excluded.raw_text, 
-            extracted_json = excluded.extracted_json, 
-            created_at = excluded.created_at
+            ON CONFLICT (file_path) DO UPDATE SET
+                vendor_name     = EXCLUDED.vendor_name, 
+                vendor_address  = EXCLUDED.vendor_address, 
+                invoice_number  = EXCLUDED.invoice_number,
+                invoice_date    = EXCLUDED.invoice_date, 
+                due_date        = EXCLUDED.due_date, 
+                bill_to_name    = EXCLUDED.bill_to_name, 
+                bill_to_address = EXCLUDED.bill_to_address, 
+                subtotal        = EXCLUDED.subtotal, 
+                tax             = EXCLUDED.tax, 
+                tax_rate        = EXCLUDED.tax_rate, 
+                total           = EXCLUDED.total, 
+                currency        = EXCLUDED.currency, 
+                payment_terms   = EXCLUDED.payment_terms, 
+                notes           = EXCLUDED.notes, 
+                raw_text        = EXCLUDED.raw_text, 
+                extracted_json  = EXCLUDED.extracted_json, 
+                created_at      = EXCLUDED.created_at
+            RETURNING Id
             """,
             {
                 'file_path': file_path,
@@ -119,17 +130,19 @@ def store_invoice(file_path: str, invoice_data: dict, raw_text: str)->int:
             },
         )
 
-        invoice_id = cur.execute(
-            "SELECT id FROM invoices WHERE file_path = ?", (file_path,)
-        ).fetchone()['id']
+        # invoice_id = cur.execute(
+        #     "SELECT id FROM invoices WHERE file_path = ?", (file_path,)
+        # ).fetchone()['id']
 
-        cur.execute("DELETE FROM line_items WHERE invoice_id = ?", (invoice_id,))
+        invoice_id = cur.fetchone()['id']
+
+        cur.execute("DELETE FROM line_items WHERE invoice_id = %s", (invoice_id,))
         for item in invoice_data.get('line_items') or []:
             if isinstance(item, dict):
                 cur.execute(
                     """
                     INSERT INTO line_items (invoice_id, description, quantity, unit_price, total)
-                    VALUES (?, ?, ?, ?, ?)
+                    VALUES (%s, %s, %s, %s, %s)
                     """,
                     (
                         invoice_id,
@@ -145,8 +158,10 @@ def store_invoice(file_path: str, invoice_data: dict, raw_text: str)->int:
         return invoice_id
 
     except Exception as e:
-        return e
+        conn.rollback()
+        logger.error('Failed to store invoice: %s', e)
     
     finally:
+        cur.close()
         conn.close()
         
