@@ -4,3 +4,4 @@
 *.db
 *.adk/
 docsloader.py
+frontend/app2.js
