@@ -157,10 +157,11 @@ async def _get_runner():
         from google.adk.runners import Runner
         from google.adk.sessions import InMemorySessionService
         from Central_Agent.agent import root_agent
+        from Query_Agent.agent import agent as query_agent
 
         _session_service = InMemorySessionService()
         _runner = Runner(
-            agent=root_agent,
+            agent=query_agent,
             app_name="invoice_agent",
             session_service=_session_service
         )
