@@ -191,14 +191,14 @@ section h2 {
     transition: background .18s, opacity .18s;
 }
 
-.btn-upload {
+.btn-upload:disabled {
     opacity: .45;
     cursor: not-allowed;
 }
 
-/* .btn-upload() {
+.btn-upload:not(:disabled):hover {
     background: var(--accent-h);
-} */
+}
 
 .btn-upload.loading {
     opacity: .7;
